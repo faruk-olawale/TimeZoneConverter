@@ -790,7 +790,7 @@ const TimezoneConverter = () => {
           }
 
           .header h1 {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
           }
 
           .header h1 svg {
