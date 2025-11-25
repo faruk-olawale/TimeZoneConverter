@@ -16,7 +16,7 @@ const TimezoneConverter = () => {
     title: '',
     date: '',
     time: '',
-    timezone: 'United States/New York'
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   });
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -149,13 +149,17 @@ const TimezoneConverter = () => {
       const now = new Date();
       
       events.forEach(event => {
+        // Get the IANA timezone code
         const ianaTimezone = timezoneData[event.timezone] || event.timezone;
+        
+        // Create event date in the event's timezone
         const eventDateStr = `${event.date}T${event.time}:00`;
         const eventTime = new Date(eventDateStr);
         
         const diff = eventTime - now;
         const fifteenMinutes = 15 * 60 * 1000;
 
+        // Check if event is within 15 minutes and not yet notified
         if (diff > 0 && diff <= fifteenMinutes && !event.notified) {
           new Notification(`Upcoming Event: ${event.title}`, {
             body: `Starting in ${Math.round(diff / 60000)} minutes at ${event.time}`,
@@ -163,12 +167,13 @@ const TimezoneConverter = () => {
             requireInteraction: true
           });
           
+          // Mark as notified
           setEvents(prev => prev.map(e => 
             e.id === event.id ? { ...e, notified: true } : e
           ));
         }
       });
-    }, 30000);
+    }, 30000); // Check every 30 seconds
 
     return () => clearInterval(interval);
   }, [events, notificationsEnabled]);
@@ -202,12 +207,28 @@ const TimezoneConverter = () => {
 
   const convertToLocalTime = (date, time, displayTimezone) => {
     try {
+      // Get IANA timezone
       const ianaTimezone = timezoneData[displayTimezone] || displayTimezone;
+      
+      // Parse the date and time as if they're in the event's timezone
       const dateTimeStr = `${date}T${time}:00`;
       const eventDate = new Date(dateTimeStr);
       
+      // Format in the event's timezone to get the actual UTC time
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: ianaTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      // Get user's timezone
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
+      // Format in user's timezone
       const localFormatter = new Intl.DateTimeFormat('en-US', {
         timeZone: userTimezone,
         year: 'numeric',
@@ -769,9 +790,13 @@ const TimezoneConverter = () => {
           }
 
           .header h1 {
-            font-size: 2rem;
+            font-size: 1.8rem;
           }
-          
+
+          .header h1 svg {
+            width: 32px;
+            height: 32px;
+          }
 
           .controls {
             flex-direction: column;
@@ -790,6 +815,21 @@ const TimezoneConverter = () => {
           .event-actions {
             width: 100%;
             justify-content: flex-end;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .header h1 {
+            font-size: 1.5rem;
+          }
+
+          .header h1 svg {
+            width: 28px;
+            height: 28px;
+          }
+
+          .header p {
+            font-size: 0.95rem;
           }
         }
       `}</style>
