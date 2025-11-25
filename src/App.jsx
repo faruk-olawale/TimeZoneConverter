@@ -368,6 +368,8 @@ const TimezoneConverter = () => {
           justify-content: center;
           gap: 15px;
           color: #333;
+          white-space: nowrap;
+          flex-wrap: nowrap;
         }
 
         .app.dark .header h1 {
@@ -791,11 +793,13 @@ const TimezoneConverter = () => {
 
           .header h1 {
             font-size: 1.5rem;
+            gap: 10px;
           }
 
           .header h1 svg {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
           }
 
           .controls {
@@ -820,12 +824,13 @@ const TimezoneConverter = () => {
 
         @media (max-width: 480px) {
           .header h1 {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
+            gap: 8px;
           }
 
           .header h1 svg {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
           }
 
           .header p {
