@@ -3,7 +3,7 @@ import { Clock, Calendar, Bell, Share2, Plus, Trash2, Sun, Moon, AlertCircle } f
 
 const TimezoneConverter = () => {
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('');
+    const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
 
@@ -836,6 +836,9 @@ const TimezoneConverter = () => {
           .header p {
             font-size: 0.95rem;
           }
+          .form-group input {
+          width:100%
+          } 
         }
       `}</style>
 
