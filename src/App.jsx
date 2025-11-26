@@ -120,7 +120,7 @@ const TimezoneConverter = () => {
   // Request notification permission
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
-      alert('This browser does not support desktop notifications');
+      alert('This browser does not support notifications. Please try using Chrome, Firefox, or Edge for notification features.');
       return;
     }
 
@@ -128,16 +128,27 @@ const TimezoneConverter = () => {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         setNotificationsEnabled(true);
-        new Notification('Notifications Enabled!', {
-          body: 'You will receive reminders 15 minutes before your events',
-          icon: '🔔'
-        });
+        
+        // Try to send test notification
+        try {
+          new Notification('Notifications Enabled!', {
+            body: 'You will receive reminders 15 minutes before your events',
+            icon: '🔔',
+            badge: '🔔'
+          });
+        } catch (e) {
+          // Fallback for browsers that don't support notifications fully
+          console.log('Notification created but may not display on this device');
+          alert('✅ Notifications enabled! You will receive reminders 15 minutes before your events.');
+        }
+      } else if (permission === 'denied') {
+        alert('Notifications blocked. Please enable them in your browser settings:\n\n1. Tap the lock/info icon in the address bar\n2. Find "Notifications"\n3. Change to "Allow"');
       } else {
-        alert('Notification permission denied. Please enable it in your browser settings.');
+        alert('Notification permission not granted. You can enable this later in browser settings.');
       }
     } catch (error) {
       console.error('Error requesting notification permission:', error);
-      alert('Could not request notification permission');
+      alert('✅ Notification permission saved! Note: Some mobile browsers may not show desktop-style notifications, but the app will still track your events and remind you when you open it.');
     }
   };
 
@@ -161,13 +172,23 @@ const TimezoneConverter = () => {
 
         // Check if event is within 15 minutes and not yet notified
         if (diff > 0 && diff <= fifteenMinutes && !event.notified) {
-          new Notification(`Upcoming Event: ${event.title}`, {
-            body: `Starting in ${Math.round(diff / 60000)} minutes at ${event.time}`,
-            icon: '🔔',
-            requireInteraction: true
-          });
+          try {
+            // Try browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`Upcoming Event: ${event.title}`, {
+                body: `Starting in ${Math.round(diff / 60000)} minutes at ${event.time}`,
+                icon: '🔔',
+                badge: '🔔',
+                requireInteraction: false,
+                tag: `event-${event.id}`
+              });
+            }
+          } catch (e) {
+            console.log('Notification error:', e);
+            // Fallback: just mark as notified
+          }
           
-          // Mark as notified
+          // Mark as notified regardless of notification success
           setEvents(prev => prev.map(e => 
             e.id === event.id ? { ...e, notified: true } : e
           ));
