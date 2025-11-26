@@ -509,6 +509,13 @@ const TimezoneConverter = () => {
           color: #333;
         }
 
+        .form-group input[type="date"],
+        .form-group input[type="time"] {
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+        }
+
         .app.dark .form-group label {
           color: #e0e0e0;
         }
@@ -516,6 +523,7 @@ const TimezoneConverter = () => {
         .form-group input,
         .form-group select {
           width: 100%;
+          max-width: 100%;
           padding: 12px 16px;
           border: 2px solid #ddd;
           border-radius: 4px;
@@ -836,9 +844,6 @@ const TimezoneConverter = () => {
           .header p {
             font-size: 0.95rem;
           }
-          .form-group input {
-          width:100%
-          } 
         }
       `}</style>
 
