@@ -422,6 +422,8 @@ const TimezoneConverter = () => {
           transition: all 0.3s ease;
           background: white;
           color: #333;
+          min-height: 44px;
+          justify-content: center;
         }
 
         .btn:hover {
@@ -634,6 +636,8 @@ const TimezoneConverter = () => {
           display: flex;
           align-items: center;
           justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
         }
 
         .app.dark .icon-btn {
@@ -817,6 +821,14 @@ const TimezoneConverter = () => {
           .btn {
             width: 100%;
             justify-content: center;
+          }
+
+          .form-actions {
+            flex-direction: column;
+          }
+
+          .form-actions .btn {
+            width: 100%;
           }
 
           .event-header {
