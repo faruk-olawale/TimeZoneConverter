@@ -171,51 +171,78 @@ const TimezoneConverter = () => {
   };
 
   // Check for upcoming events and send notifications
-  useEffect(() => {
-    if (!notificationsEnabled) return;
+ // Check for upcoming events and send notifications
+ // Check for upcoming events and send notifications
+  useEffect(() => {
+    if (!notificationsEnabled) return;
 
-    const interval = setInterval(() => {
-      const now = new Date();
-      
-      events.forEach(event => {
-        // Get the IANA timezone code
-        const ianaTimezone = timezoneData[event.timezone] || event.timezone;
-        
-        // Create event date in the event's timezone
-        const eventDateStr = `${event.date}T${event.time}:00`;
-        const eventTime = new Date(eventDateStr);
-        
-        const diff = eventTime - now;
-        const fifteenMinutes = 15 * 60 * 1000;
+    const interval = setInterval(() => {
+      const nowUTC = new Date().getTime(); // Current time in milliseconds (UTC epoch)
+      
+      events.forEach(event => {
+        // Get the IANA timezone code
+        const ianaTimezone = timezoneData[event.timezone] || event.timezone;
+        
+        let eventTimeUTC;
 
-        // Check if event is within 15 minutes and not yet notified
-        if (diff > 0 && diff <= fifteenMinutes && !event.notified) {
-          try {
-            // Try browser notification
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(`Upcoming Event: ${event.title}`, {
-                body: `Starting in ${Math.round(diff / 60000)} minutes at ${event.time}`,
-                icon: '🔔',
-                badge: '🔔',
-                requireInteraction: false,
-                tag: `event-${event.id}`
-              });
-            }
-          } catch (e) {
-            console.log('Notification error:', e);
-            // Fallback: just mark as notified
-          }
-          
-          // Mark as notified regardless of notification success
-          setEvents(prev => prev.map(e => 
-            e.id === event.id ? { ...e, notified: true } : e
-          ));
+        try {
+          // 1. Parse date components
+          const [year, month, day] = event.date.split('-').map(Number);
+          const [hours, minutes] = event.time.split(':').map(Number);
+          
+          // 2. Create a local date object from components (Note: month is 0-indexed)
+          const eventLocal = new Date(year, month - 1, day, hours, minutes, 0);
+
+          // 3. Convert this local moment to a reliable string interpreted in the event's IANA timezone.
+          // This ensures the browser's time zone data is used to calculate the correct UTC equivalent.
+          const eventMomentStr = eventLocal.toLocaleString('en-US', { 
+            timeZone: ianaTimezone, 
+            hour12: false 
+          });
+          
+          // 4. Parse this reliable string back into a UTC date object and get the timestamp.
+          eventTimeUTC = new Date(eventMomentStr).getTime();
+
+        } catch (e) {
+          console.error('Date parsing error for notification check:', e);
+          return; // Skip notification check if date is invalid
+        }
+        
+        // Handle case where conversion still results in an invalid time (highly unlikely with the new method)
+        if (isNaN(eventTimeUTC)) {
+            return;
         }
-      });
-    }, 30000); // Check every 30 seconds
 
-    return () => clearInterval(interval);
-  }, [events, notificationsEnabled]);
+        const diff = eventTimeUTC - nowUTC;
+        const fifteenMinutes = 15 * 60 * 1000;
+
+        // Check if event is within 15 minutes (but not in the past) and not yet notified
+        if (diff > 0 && diff <= fifteenMinutes && !event.notified) {
+          try {
+            // Try browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`🔔 Upcoming Event: ${event.title}`, {
+                body: `Starting in ${Math.round(diff / 60000)} minutes. Original time: ${event.time} (${event.timezone})`,
+                icon: '🔔',
+                badge: '🔔',
+                requireInteraction: false,
+                tag: `event-${event.id}`
+              });
+            }
+          } catch (e) {
+            console.log('Notification error:', e);
+          }
+          
+          // Mark as notified regardless of notification success
+          setEvents(prev => prev.map(e => 
+            e.id === event.id ? { ...e, notified: true } : e
+          ));
+        }
+      });
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [events, notificationsEnabled]);
 
   const handleSubmit = () => {
     if (!formData.title || !formData.date || !formData.time) {
@@ -244,87 +271,61 @@ const TimezoneConverter = () => {
     setEvents(events.filter(e => e.id !== id));
   };
 
-  const convertToLocalTime = (date, time, displayTimezone) => {
-  try {
-    // Get IANA timezone code
-    const ianaTimezone = timezoneData[displayTimezone] || displayTimezone;
-    
-    // Split date and time
-    const [year, month, day] = date.split('-').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
-    
-    // Create a date string in ISO format for the event timezone
-    // This represents the LOCAL time in that timezone
-    const localDateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-    
-    // Get the UTC offset for the event timezone at this date/time
-    // by creating a formatter and comparing with UTC
-    const eventDate = new Date(localDateString + 'Z'); // Start with UTC interpretation
-    
-    // Format the date in the event's timezone
-    const eventTimeFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: ianaTimezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    // Format the date in UTC
-    const utcFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'UTC',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    // Find the right UTC time that corresponds to our local time in the event timezone
-    // by iterating through possible times
-    let testTime = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
-    let found = false;
-    
-    // Search within a 24 hour window
-    for (let offset = -12; offset <= 12 && !found; offset++) {
-      testTime = new Date(Date.UTC(year, month - 1, day, hours - offset, minutes, 0));
-      const formatted = eventTimeFormatter.format(testTime);
-      const [formattedDate, formattedTime] = formatted.split(', ');
-      const [formattedMonth, formattedDay, formattedYear] = formattedDate.split('/');
-      const [formattedHour, formattedMinute] = formattedTime.split(':');
-      
-      if (parseInt(formattedYear) === year && 
-          parseInt(formattedMonth) === month && 
-          parseInt(formattedDay) === day &&
-          parseInt(formattedHour) === hours &&
-          parseInt(formattedMinute) === minutes) {
-        found = true;
-        break;
-      }
-    }
-    
-    // Now format this UTC time in user's local timezone
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const localFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: userTimezone,
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      weekday: 'long'
-    });
-    
-    return localFormatter.format(testTime);
-  } catch (e) {
-    console.error('Conversion error:', e);
-    return 'Invalid date/time';
-  }
-};
+const convertToLocalTime = (date, time, displayTimezone) => {
+    try {
+      // 1. Get the IANA timezone code
+      const ianaTimezone = timezoneData[displayTimezone] || displayTimezone;
+      
+      // 2. Parse date components
+      const [year, month, day] = date.split('-').map(Number);
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      // Create a UTC Date object representing the event's local time *as if* it were UTC.
+      // This is a temporary reference point to determine the event's true UTC time.
+      const tempDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+
+      // Use the event's timezone to find the offset
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false, timeZone: ianaTimezone, 
+        timeZoneName: 'longOffset'
+      });
+      
+      // Format the temporary date in the event's time zone.
+      // The output string contains the event's actual local time.
+      const eventLocalTimeStr = formatter.format(tempDate);
+      
+      // Now we must reconstruct the date to find the true UTC moment.
+      // We use the Date object to get the UTC offset from the local time in the event's zone.
+      
+      // This is the most reliable cross-browser way to get the UTC timestamp:
+      const eventMoment = new Date(
+        year, month - 1, day, hours, minutes, 0
+      ).toLocaleString('en-US', { timeZone: ianaTimezone, hour12: false });
+      
+      // Create the final UTC Date object from the locale-aware string
+      const finalEventUTC = new Date(eventMoment);
+
+      // 3. Format this final UTC time into the user's local timezone for display.
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const localFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: userTimezone,
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        weekday: 'long'
+      });
+      
+      return localFormatter.format(finalEventUTC);
+    } catch (e) {
+      console.error('Robust Conversion error:', e);
+      return 'Invalid date/time / Conversion Error';
+    }
+  };
 
   const shareEvent = (event) => {
     const eventData = btoa(JSON.stringify({
