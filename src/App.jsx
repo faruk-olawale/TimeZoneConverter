@@ -119,36 +119,54 @@ const TimezoneConverter = () => {
 
   // Request notification permission
   const requestNotificationPermission = async () => {
+    // Check if running as PWA or web app
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                        window.navigator.standalone || 
+                        document.referrer.includes('android-app://');
+
     if (!('Notification' in window)) {
-      alert('This browser does not support notifications. Please try using Chrome, Firefox, or Edge for notification features.');
+      if (isStandalone) {
+        alert('✅ Notification preference saved! Events will be tracked and you can set reminders through your calendar.');
+      } else {
+        alert('For full notification support:\n\n1. Open this app in Chrome\n2. Tap menu (⋮)\n3. Select "Add to Home screen"\n4. Open from home screen\n\nOr continue using the app normally - events will still be saved!');
+      }
+      // Still mark as "enabled" so user doesn't keep seeing the prompt
+      setNotificationsEnabled(true);
       return;
     }
 
     try {
       const permission = await Notification.requestPermission();
+      
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         
         // Try to send test notification
         try {
-          new Notification('Notifications Enabled!', {
+          new Notification('🎉 Notifications Enabled!', {
             body: 'You will receive reminders 15 minutes before your events',
-            icon: '🔔',
-            badge: '🔔'
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
+            badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
+            tag: 'test-notification',
+            requireInteraction: false
           });
         } catch (e) {
-          // Fallback for browsers that don't support notifications fully
-          console.log('Notification created but may not display on this device');
+          console.log('Notification created but may not display:', e);
           alert('✅ Notifications enabled! You will receive reminders 15 minutes before your events.');
         }
       } else if (permission === 'denied') {
-        alert('Notifications blocked. Please enable them in your browser settings:\n\n1. Tap the lock/info icon in the address bar\n2. Find "Notifications"\n3. Change to "Allow"');
+        alert('❌ Notifications blocked\n\nTo enable:\n1. Tap the lock icon (🔒) in the address bar\n2. Tap "Permissions"\n3. Find "Notifications"\n4. Change to "Allow"\n5. Refresh the page');
+        setNotificationsEnabled(false);
       } else {
         alert('Notification permission not granted. You can enable this later in browser settings.');
+        setNotificationsEnabled(false);
       }
     } catch (error) {
       console.error('Error requesting notification permission:', error);
-      alert('✅ Notification permission saved! Note: Some mobile browsers may not show desktop-style notifications, but the app will still track your events and remind you when you open it.');
+      
+      // Set as enabled anyway to stop showing the banner
+      setNotificationsEnabled(true);
+      alert('✅ Preference saved!\n\nNote: Some browsers have restrictions on notifications. Your events are still saved and you can:\n• Export to calendar\n• Share event links\n• Use all timezone features');
     }
   };
 
