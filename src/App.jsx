@@ -245,46 +245,86 @@ const TimezoneConverter = () => {
   };
 
   const convertToLocalTime = (date, time, displayTimezone) => {
-    try {
-      // Get IANA timezone
-      const ianaTimezone = timezoneData[displayTimezone] || displayTimezone;
+  try {
+    // Get IANA timezone code
+    const ianaTimezone = timezoneData[displayTimezone] || displayTimezone;
+    
+    // Split date and time
+    const [year, month, day] = date.split('-').map(Number);
+    const [hours, minutes] = time.split(':').map(Number);
+    
+    // Create a date string in ISO format for the event timezone
+    // This represents the LOCAL time in that timezone
+    const localDateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+    
+    // Get the UTC offset for the event timezone at this date/time
+    // by creating a formatter and comparing with UTC
+    const eventDate = new Date(localDateString + 'Z'); // Start with UTC interpretation
+    
+    // Format the date in the event's timezone
+    const eventTimeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: ianaTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    // Format the date in UTC
+    const utcFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    // Find the right UTC time that corresponds to our local time in the event timezone
+    // by iterating through possible times
+    let testTime = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    let found = false;
+    
+    // Search within a 24 hour window
+    for (let offset = -12; offset <= 12 && !found; offset++) {
+      testTime = new Date(Date.UTC(year, month - 1, day, hours - offset, minutes, 0));
+      const formatted = eventTimeFormatter.format(testTime);
+      const [formattedDate, formattedTime] = formatted.split(', ');
+      const [formattedMonth, formattedDay, formattedYear] = formattedDate.split('/');
+      const [formattedHour, formattedMinute] = formattedTime.split(':');
       
-      // Parse the date and time as if they're in the event's timezone
-      const dateTimeStr = `${date}T${time}:00`;
-      const eventDate = new Date(dateTimeStr);
-      
-      // Format in the event's timezone to get the actual UTC time
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: ianaTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      
-      // Get user's timezone
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
-      // Format in user's timezone
-      const localFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: userTimezone,
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        weekday: 'long'
-      });
-      
-      return localFormatter.format(eventDate);
-    } catch (e) {
-      console.error('Conversion error:', e);
-      return 'Invalid date/time';
+      if (parseInt(formattedYear) === year && 
+          parseInt(formattedMonth) === month && 
+          parseInt(formattedDay) === day &&
+          parseInt(formattedHour) === hours &&
+          parseInt(formattedMinute) === minutes) {
+        found = true;
+        break;
+      }
     }
-  };
+    
+    // Now format this UTC time in user's local timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      weekday: 'long'
+    });
+    
+    return localFormatter.format(testTime);
+  } catch (e) {
+    console.error('Conversion error:', e);
+    return 'Invalid date/time';
+  }
+};
 
   const shareEvent = (event) => {
     const eventData = btoa(JSON.stringify({
